@@ -1,0 +1,685 @@
+---
+title: "Nithin Intro To R"
+output: html_document
+date: "2023-05-30"
+---
+################################################################################
+#                                                                               #
+#       PLEASE MAKE SURE TO INSTALL ALL THE BELOW COMENTED PACKAGES             #
+#                                                                               #
+#################################################################################
+
+```{r}
+# Load the necessary package (if not already installed)
+#install.packages("corrplot")
+#install.packages("skimr")
+#install.packages("tidyverse")
+#install.packages("Hmisc")
+#install.packages("readr")
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("tidyr")
+#install.packages("scales")
+
+
+
+library(corrplot)
+library(skimr)
+library(tidyverse)
+library(Hmisc)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(scales)
+
+# Set the URL
+url <- "https://raw.githubusercontent.com/kwartler/Hult_Intro2R/main/A1_CerealEDA/cereals.csv"
+
+# Read the CSV file and create a dataframe
+data <- read_csv(url)
+
+# Drop duplicates if incase any from the 'data' dataframe
+data <- data[!duplicated(data), ]
+
+# Drop the unecessary 'parsedName' column
+data <- data[, !colnames(data) %in% "parsedName"]
+
+
+# Print the dataframe
+print(data)
+
+
+```
+```{r}
+
+                                      ########################################
+                                      #                                      #
+                                      #           BASIC EDA                  #
+                                      #                                      #
+                                      ########################################
+
+```
+
+```{r}
+########################################
+#                                      #
+#       HISTOGRAM ANALYSIS             #
+#                                      #
+########################################
+
+
+# Iterate over each column in the dataframe
+for (col in names(data)) {
+  # Check if the column is numeric
+  if (is.numeric(data[[col]])) {
+    # Generate histogram for numeric columns
+    hist_plot <- ggplot(data, aes(x = !!sym(col))) +
+      geom_histogram(aes(fill = ..count..), binwidth = 25, color = "black") +
+      labs(x = col, y = "Count", title = paste("Histogram of", col)) +
+      scale_fill_gradient(low = "blue", high = "red") +  # Make bars colorful
+      theme_minimal()  # Simple white background
+    
+    # Print the histogram plot
+    print(hist_plot)
+  }
+}
+
+```
+```{r}
+########################################
+#                                      #
+#       GROUPBY ANALYSIS               #
+#                                      #
+########################################
+
+
+# Group by brand and calculate the mean of calories and energy
+group_by_brand <- data %>% 
+  group_by(brand) %>% 
+  summarise(mean_calories = mean(calories, na.rm = TRUE),
+            mean_energy = mean(Energy_kcal, na.rm = TRUE))
+
+print(group_by_brand)
+
+
+
+ggplot(group_by_brand, aes(x = brand, y = mean_calories, fill = brand)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Average Calories per Brand",
+       x = "Brand",
+       y = "Average Calories") +
+  theme(legend.position = "none")
+
+```
+
+```{r}
+
+# Group by brand, dietLabels and calculate the mean of total fat and cholesterol
+group_by_brand_diet <- data %>%
+  group_by(brand, dietLabels) %>%
+  summarise(mean_fat = mean(Total.lipid..fat._g, na.rm = TRUE),
+            mean_cholesterol = mean(Cholesterol_mg, na.rm = TRUE))
+
+ggplot(group_by_brand_diet, aes(x = brand, y = mean_fat, fill = dietLabels)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Average Fat per Brand by Diet Labels",
+       x = "Brand",
+       y = "Average Fat")
+
+```
+
+
+
+
+```{r}
+# Start by counting the occurrences of each 'dietLabels' value in the 'data' dataframe
+dietLabels_counts <- data %>% 
+  dplyr::group_by(dietLabels) %>%
+  dplyr::summarise(n = dplyr::n())
+
+# Get the unique values of 'dietLabels'
+unique_labels <- unique(dietLabels_counts$dietLabels)
+
+# Define custom colors
+my_colors <- c("#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#FFA500", "#008000", "#800080")
+
+# Create a bar chart using the ggplot2 library and specify the data and aesthetics
+ggplot2::ggplot(dietLabels_counts, ggplot2::aes(x = reorder(dietLabels, n), y = n, fill = dietLabels)) +
+  # 'geom_bar' creates a bar chart with bars filled according to 'dietLabels'
+  ggplot2::geom_bar(stat = "identity") +
+  # 'labs' function is used to add labels to the x-axis, y-axis, and the chart title
+  ggplot2::labs(x = "Diet Labels", y = "Frequency", title = "Frequency Count of Diet Labels") +
+  # 'theme' function is used to customize the appearance of the chart, here we're adjusting the angle and justification of x-axis labels
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1)) +
+  # 'scale_fill_manual' function allows us to manually set the fill colors for the bars
+  ggplot2::scale_fill_manual(values = my_colors[1:length(unique_labels)])
+
+
+
+```
+
+```{r}
+
+########################################
+#                                      #
+#       HEALTH ANALYSIS                #
+#                                      #
+########################################
+
+# This line takes the healthLabels column from the data dataset and splits the values using a comma as the delimiter. The resulting values are stored in the all_labels variable as a character vector.
+all_labels <- unlist(strsplit(data$healthLabels, ", "))
+
+# Here, the unique() function is used to extract unique values from the all_labels vector. These unique labels are stored in the unique_labels variable.
+unique_labels <- unique(all_labels)
+#print(unique_labels)
+
+
+# This loop iterates over each unique label in unique_labels and prints it using the cat() function. Each label is printed on a new line.
+#for (label in unique_labels) {
+#  cat(label, "\n")
+#}
+
+
+
+# This line creates a logical matrix encoded_data by applying the grepl() function to each unique label in unique_labels. The grepl() function checks if each label exists in the healthLabels column of the data dataset. The result is a matrix with TRUE values where the label is present and FALSE values where it is not.
+encoded_data <- sapply(unique_labels, function(label) grepl(label, data$healthLabels))
+
+# The as.data.frame() function is used to convert the logical matrix encoded_data into a data frame. This allows for easier manipulation and analysis of the encoded data.
+encoded_data <- as.data.frame(encoded_data)
+
+
+# This line combines the original data dataset with the newly created encoded_data data frame column-wise using the cbind() function. The resulting data dataset now contains the original columns along with the encoded labels.
+data <- cbind(data, encoded_data)
+
+
+# Here, a character vector column_names is created, containing the names of specific health labels. These names correspond to the encoded columns in the data dataset.
+column_names <- c("LOW_FAT_ABS",
+                  "VEGAN",
+                  "VEGETARIAN",
+                  "PESCATARIAN",
+                  "MEDITERRANEAN",
+                  "DAIRY_FREE",
+                  "EGG_FREE",
+                  "MILK_FREE",
+                  "PEANUT_FREE",
+                  "TREE_NUT_FREE",
+                  "SOY_FREE",
+                  "FISH_FREE",
+                  "SHELLFISH_FREE",
+                  "PORK_FREE",
+                  "RED_MEAT_FREE",
+                  "CRUSTACEAN_FREE",
+                  "CELERY_FREE",
+                  "MUSTARD_FREE",
+                  "SESAME_FREE",
+                  "LUPINE_FREE",
+                  "MOLLUSK_FREE",
+                  "ALCOHOL_FREE",
+                  "NO_OIL_ADDED",
+                  "SULPHITE_FREE",
+                  "KOSHER",
+                  "FAT_FREE",
+                  "SUGAR_CONSCIOUS",
+                  "LOW_POTASSIUM",
+                  "KIDNEY_FRIENDLY",
+                  "WHEAT_FREE",
+                  "LOW_SUGAR",
+                  "KETO_FRIENDLY",
+                  "DASH",
+                  "GLUTEN_FREE",
+                  "NO_SUGAR_ADDED",
+                  "FODMAP_FREE",
+                  "PALEO",
+                  "SPECIFIC_CARBS")
+
+
+#This line calculates the column-wise means for the columns specified in column_names from the data dataset using the colMeans() function. The resulting means are multiplied by 100 and stored in the percentages variable.
+percentages <- colMeans(data[column_names]) * 100
+
+
+#Finally, the percentages variable is printed, displaying the calculated percentages for each health label in the column_names columns of the data dataset.
+print(percentages)
+```
+```{r}
+
+
+# Specify the logical columns of interest
+logical_columns <- c("LOW_FAT_ABS", "VEGAN", "VEGETARIAN", "PESCATARIAN", "MEDITERRANEAN", "DAIRY_FREE",
+                     "EGG_FREE", "MILK_FREE", "PEANUT_FREE", "TREE_NUT_FREE", "SOY_FREE", "FISH_FREE",
+                     "SHELLFISH_FREE", "PORK_FREE", "RED_MEAT_FREE", "CRUSTACEAN_FREE", "CELERY_FREE",
+                     "MUSTARD_FREE", "SESAME_FREE", "LUPINE_FREE", "MOLLUSK_FREE", "ALCOHOL_FREE",
+                     "NO_OIL_ADDED", "SULPHITE_FREE", "KOSHER", "FAT_FREE", "SUGAR_CONSCIOUS", "LOW_POTASSIUM",
+                     "KIDNEY_FRIENDLY", "WHEAT_FREE", "LOW_SUGAR", "KETO_FRIENDLY", "DASH", "GLUTEN_FREE",
+                     "NO_SUGAR_ADDED", "FODMAP_FREE", "PALEO", "SPECIFIC_CARBS")
+
+
+# Loop through each logical column
+for(col in logical_columns){
+  # Subset the data for only the brand and the current logical column
+  data_logical <- data[, c("brand", col)]
+  
+  # Reshape the data to long format for plotting
+  data_logical_long <- data_logical %>%
+    tidyr::gather(key = "column", value = "logical_value", -brand)
+  
+  # Create the bar plot
+  plot_logical <- ggplot(data_logical_long, aes(x = brand, fill = logical_value)) +
+    geom_bar(position = "fill") +
+    labs(x = "Brand", y = "Proportion", title = paste("Proportion of", col, "by Brand")) +
+    facet_wrap(~column, scales = "free_x", nrow = 1) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  # Print the bar plot
+  print(plot_logical)
+}
+
+
+
+```
+
+
+```{r}
+########################################
+#                                      #
+#          DIET ANALYSIS               #
+#                                      #
+########################################
+
+# This line takes the dietLabels column from the data dataset and splits the values using a comma as the delimiter. The resulting values are stored in the all_labels variable as a character vector.
+all_dietLabels <- unlist(strsplit(data$dietLabels, ", "))
+
+# Here, the unique() function is used to extract unique values from the all_dietLabels vector. These unique dietLabels are stored in the unique_dietLabels variable.
+unique_dietLabels <- unique(all_dietLabels)
+#print(unique_dietLabels)
+
+
+# This loop iterates over each unique label in unique_dietLabels and prints it using the cat() function. Each label is printed on a new line.
+#for (label in unique_dietLabels) {
+#  cat(label, "\n")
+#}
+
+
+
+# This line creates a logical matrix encoded_data by applying the grepl() function to each unique label in unique_labels. The grepl() function checks if each dietLabel exists in the dietLabels column of the data dataset. The result is a matrix with TRUE values where the label is present and FALSE values where it is not.
+encoded_data <- sapply(unique_dietLabels, function(label) grepl(label, data$dietLabels))
+
+# The as.data.frame() function is used to convert the logical matrix encoded_data into a data frame. This allows for easier manipulation and analysis of the encoded data.
+encoded_data <- as.data.frame(encoded_data)
+
+
+# This line combines the original data dataset with the newly created encoded_data data frame column-wise using the cbind() function. The resulting data dataset now contains the original columns along with the encoded labels.
+data <- cbind(data, encoded_data)
+
+# Here, a character vector column_names is created, containing the names of specific health labels. These names correspond to the encoded columns in the data dataset.
+column_names <- c("HIGH_FIBER",
+                  "LOW_SODIUM",
+                  "LOW_FAT",
+                  "LOW_CARB",
+                  "BALANCED")
+
+#This line calculates the column-wise means for the columns specified in column_names from the data dataset using the colMeans() function. The resulting means are multiplied by 100 and stored in the percentages variable.
+percentages <- colMeans(data[column_names]) * 100
+
+
+#Finally, the percentages variable is printed, displaying the calculated percentages for each health label in the column_names columns of the data dataset.
+print(percentages)
+
+```
+
+```{r}
+
+# Select the relevant columns for analysis
+columns <- c("brand", "HIGH_FIBER", "LOW_SODIUM", "LOW_FAT", "LOW_CARB", "BALANCED")
+data_logical <- data[, columns]
+
+# Reshape the data to long format for plotting
+data_logical_long <- data_logical %>%
+  tidyr::gather(key = "column", value = "logical_value", -brand)
+
+# Create the bar plot
+plot_logical <- ggplot(data_logical_long, aes(x = brand, fill = logical_value)) +
+  geom_bar(position = "fill") +
+  labs(x = "Brand", y = "Proportion", title = "Proportion of Logical Values by Brand") +
+  facet_wrap(~column, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Print the bar plot
+print(plot_logical)
+
+```
+
+```{r}
+
+########################################
+#                                      #
+#          NUTRIENT ANALYSIS           #
+#                                      #
+########################################
+
+# Set the URL
+url <- "https://raw.githubusercontent.com/kwartler/Hult_Intro2R/main/A1_CerealEDA/cereals.csv"
+
+# Read the CSV file and create a dataframe
+data <- read_csv(url)
+
+# Generate summary table for the 'data' dataframe
+summary_table <- skim(data)
+
+# Print the summary table
+print(summary_table)
+```
+
+
+```{r}
+data <- data[, c("cerealName", "brand", "calories", "Energy_kcal", "Total.lipid..fat._g", "Fatty.acids..total.saturated_g", "Fatty.acids..total.trans_g", "Fatty.acids..total.monounsaturated_g", "Fatty.acids..total.polyunsaturated_g", "Carbohydrate..by.difference_g", "Carbohydrates..net._g", "Fiber..total.dietary_g", "Sugars..total_g", "Protein_g", "Cholesterol_mg", "Sodium..Na_mg", "Calcium..Ca_mg", "Magnesium..Mg_mg", "Potassium..K_mg", "Iron..Fe_mg", "Zinc..Zn_mg", "Phosphorus..P_mg", "Vitamin.A..RAE_µg", "Vitamin.C..total.ascorbic.acid_mg", "Thiamin_mg", "Riboflavin_mg", "Niacin_mg", "Vitamin.B.6_mg", "Folate..DFE_µg", "Folate..food_µg", "Folic.acid_µg", "Vitamin.B.12_µg", "Vitamin.D..D2...D3._µg", "Vitamin.E..alpha.tocopherol._mg", "Vitamin.K..phylloquinone._µg", "Water_g", "Energy_pct", "Fat_pct", "Saturated_pct", "Carbs_pct", "Fiber_pct", "Protein_pct", "Cholesterol_pct", "Sodium_pct", "Calcium_pct", "Magnesium_pct", "Potassium_pct", "Iron_pct", "Zinc_pct", "Phosphorus_pct", "Vitamin.A_pct", "Vitamin.C_pct", "Thiamin..B1._pct", "Riboflavin..B2._pct", "Niacin..B3._pct", "Vitamin.B6_pct", "Folate.equivalent..total._pct", "Vitamin.B12_pct", "Vitamin.D_pct", "Vitamin.E_pct", "Vitamin.K_pct")]
+
+```
+
+
+
+```{r}
+
+########################################
+#                                      #
+# NUTRIENT:  ENERGY CONTENT ANALYSIS   #
+#                                      #
+########################################
+# Top and bottom 5 cereals based on energy content
+
+top_5_energy <- data %>%
+  arrange(desc(Energy_kcal)) %>%
+  head(5)
+
+bottom_5_energy <- data %>%
+  arrange(Energy_kcal) %>%
+  head(5)
+
+print(top_5_energy)
+print(bottom_5_energy)
+
+# Histogram for energy content
+ggplot(data, aes(x = Energy_kcal)) +
+  geom_histogram(binwidth = 10, fill = "blue", color = "black") +
+  xlab("Energy content (kcal)") +
+  ylab("Frequency") +
+  ggtitle("Distribution of energy content in ALL Cereals")
+
+```
+
+```{r}
+##################################################
+#                                                #
+# NUTRIENT:Sugar  ANALYSIS                       #
+#                                                #
+##################################################
+
+# Calculate average sugar level
+avg_sugar <- data %>% 
+  summarise(avg_sugar = mean(Sugars..total_g, na.rm = TRUE))
+
+# Cereals with high sugar content
+high_sugar_cereals <- data %>% 
+  filter(Sugars..total_g > avg_sugar$avg_sugar)
+
+
+print(avg_sugar)
+print(high_sugar_cereals)
+```
+
+
+```{r}
+
+##################################################
+#                                                #
+# NUTRIENT:FIBER  ANALYSIS                       #
+#                                                #
+##################################################
+
+# Calculate average fiber content
+avg_fiber <- data %>% 
+  summarise(avg_fiber = mean(Fiber..total.dietary_g, na.rm = TRUE))
+
+# Cereals with high fiber content
+high_fiber_cereals <- data %>% 
+  filter(Fiber..total.dietary_g > avg_fiber$avg_fiber)
+
+print(avg_fiber)
+print(high_fiber_cereals)
+```
+
+```{r}
+##################################################
+#                                                #
+# NUTRIENT:CORRELATION fat_pct,cholesterol_mg    #
+#                                                #
+##################################################
+# Calculate correlation between fat_pct and cholesterol_mg
+correlation <- cor(data$Fat_pct, data$Cholesterol_mg, use = "complete.obs")
+print(correlation)
+```
+
+```{r}
+##################################################
+#                                                #
+# NUTRIENT:BRAND fat_pct,cholesterol_mg          #
+#                                                #
+##################################################
+# Mean nutrient values by brand
+nutrient_by_brand <- data %>% 
+  group_by(brand) %>% 
+  summarise(across(where(is.numeric), mean, na.rm = TRUE))
+
+print(nutrient_by_brand)
+```
+
+```{r}
+ggplot(data, aes(x = Fiber..total.dietary_g)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black") +
+  xlab("Fiber content (g)") +
+  ylab("Frequency") +
+  ggtitle("Distribution of fiber content in cereals")
+
+```
+
+```{r}
+
+ggplot(data, aes(x = Fat_pct, y = Cholesterol_pct)) +
+  geom_point() +
+  xlab("Fat Percentage") +
+  ylab("Cholesterol (mg)") +
+  ggtitle("Scatter plot of Fat Percentage vs Cholesterol")
+
+
+```
+
+```{r}
+##################################################
+#                                                #
+# CORRELATION ANALYISIS                          #
+#                                                #
+##################################################
+
+# Select only numeric columns from the dataframe
+numeric_data <- data[, sapply(data, is.numeric)]
+
+# Compute the correlation matrix
+correlation_matrix <- cor(numeric_data, use = "pairwise.complete.obs")
+
+# Increase the size of the correlation plot
+corrplot(correlation_matrix, method = "color", tl.cex = 0.8, cl.cex = 0.8, mar = c(1, 1, 3, 4))
+
+
+```
+
+```{r}
+
+                                ##################################################
+                                #                                                #
+                                #          REGRESSION  ANALYISIS                 #
+                                #                                                #
+                                ##################################################
+
+
+
+```
+
+```{r}
+                                ##################################################
+                                #                                                #
+                                #                   CLEANING                     #
+                                #                                                #
+                                ##################################################
+# Set the URL
+url <- "https://raw.githubusercontent.com/kwartler/Hult_Intro2R/main/A1_CerealEDA/cereals.csv"
+
+# Read the CSV file and create a dataframe
+data <- read_csv(url)
+
+# Drop rows with more than 2 NA values in the row 
+data <- data[rowSums(is.na(data)) <= 2,]
+
+# Perform mean imputation on remaining NA values
+data_imputed <- data %>%
+  mutate(across(where(is.numeric), ~impute(.x, mean)))
+```
+
+```{r}
+                                ##################################################
+                                #                                                #
+                                #                   ONE HOT ENCODING             #
+                                #                                                #
+                                ##################################################
+
+########################################
+#                                      #
+#       HEALTH                         #
+#                                      #
+########################################
+
+# This line takes the healthLabels column from the data dataset and splits the values using a comma as the delimiter. The resulting values are stored in the all_labels variable as a character vector.
+all_labels <- unlist(strsplit(data$healthLabels, ", "))
+
+# Here, the unique() function is used to extract unique values from the all_labels vector. These unique labels are stored in the unique_labels variable.
+unique_labels <- unique(all_labels)
+
+
+
+# This line creates a logical matrix encoded_data by applying the grepl() function to each unique label in unique_labels. The grepl() function checks if each label exists in the healthLabels column of the data dataset. The result is a matrix with TRUE values where the label is present and FALSE values where it is not.
+encoded_data <- sapply(unique_labels, function(label) grepl(label, data$healthLabels))
+
+# The as.data.frame() function is used to convert the logical matrix encoded_data into a data frame. This allows for easier manipulation and analysis of the encoded data.
+encoded_data <- as.data.frame(encoded_data)
+
+
+# This line combines the original data dataset with the newly created encoded_data data frame column-wise using the cbind() function. The resulting data dataset now contains the original columns along with the encoded labels.
+data <- cbind(data, encoded_data)
+
+
+########################################
+#                                      #
+#       DIET                           #
+#                                      #
+########################################
+
+# This line takes the dietLabels column from the data dataset and splits the values using a comma as the delimiter. The resulting values are stored in the all_labels variable as a character vector.
+all_dietLabels <- unlist(strsplit(data$dietLabels, ", "))
+
+# Here, the unique() function is used to extract unique values from the all_dietLabels vector. These unique dietLabels are stored in the unique_dietLabels variable.
+unique_dietLabels <- unique(all_dietLabels)
+
+
+# This line creates a logical matrix encoded_data by applying the grepl() function to each unique label in unique_labels. The grepl() function checks if each dietLabel exists in the dietLabels column of the data dataset. The result is a matrix with TRUE values where the label is present and FALSE values where it is not.
+encoded_data <- sapply(unique_dietLabels, function(label) grepl(label, data$dietLabels))
+
+# The as.data.frame() function is used to convert the logical matrix encoded_data into a data frame. This allows for easier manipulation and analysis of the encoded data.
+encoded_data <- as.data.frame(encoded_data)
+
+
+# This line combines the original data dataset with the newly created encoded_data data frame column-wise using the cbind() function. The resulting data dataset now contains the original columns along with the encoded labels.
+data <- cbind(data, encoded_data)
+```
+
+
+```{r}
+
+# First convert the 'rawGPTRank' column to character
+data$rawGPTRank <- as.character(data$rawGPTRank)
+
+# Identify rows that contain only numeric characters or decimal points in the 'gptDescription' column
+numeric_rows <- grepl("^[0-9.]+$", data$rawGPTRank)
+
+# Subset the dataframe to include only these rows
+data <- data[numeric_rows, ]
+
+
+
+
+```
+
+```{r}
+# This script first identifies all numeric columns in your dataframe except for 'rawGPTRank'. It then creates a formula string for the regression model, which includes 'rawGPTRank' as the dependent variable and all other numeric columns as the independent variables. This formula is used to fit a linear regression model using the lm() function. Finally, it prints a summary of the model, which includes the coefficients of the regression, the residuals, and various statistics that help to interpret the model's fit.
+
+
+# Get the names of all numeric columns except 'rawGPTRank'
+numeric_vars <- sapply(data, is.numeric)
+numeric_vars["rawGPTRank"] <- FALSE
+numeric_cols <- names(numeric_vars)[numeric_vars]
+
+# Create the formula for the regression model
+regression_formula <- as.formula(paste("rawGPTRank ~", paste(numeric_cols, collapse = " + ")))
+
+# Run the linear regression model
+model <- lm(regression_formula, data = data)
+
+# Print the summary of the model
+summary(model)
+
+
+```
+
+```{r}
+
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+#$                           $
+#$      T  H  A  N  K        $
+#$        Y  O  U            $
+#$                           $
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+# Function to print a big "THANK YOU" using "#" characters
+print_big_thank_you <- function() {
+  # Define the letters of "THANK YOU" represented in "#" characters
+  letters <- list(
+    "T" = c("#####", "  #  ", "  #  ", "  #  "),
+    "H" = c("#   #", "#   #", "#####", "#   #"),
+    "A" = c(" ## ", "#  #", "#####", "#   #"),
+    "N" = c("#   #", "##  #", "# # #", "#  ##"),
+    "K" = c("#   #", "#  # ", "##   ", "#  # "),
+    "Y" = c("#   #", " # # ", "  #  ", "  #  "),
+    "O" = c("#####", "#   #", "#   #", "#####"),
+    "U" = c("#   #", "#   #", "#   #", "#####"),
+    " " = c("     ", "     ", "     ", "     ")
+  )
+  
+  # Print each row of the big "THANK YOU"
+  for (row in 1:4) {
+    for (letter in c("T", "H", "A", "N", "K", " ", "Y", "O", "U")) {
+      cat(letters[[letter]][row], " ")
+    }
+    cat("\n")
+  }
+}
+
+# Call the function to print the big "THANK YOU"
+print_big_thank_you()
+
+
+
+
+```
+
+
+
